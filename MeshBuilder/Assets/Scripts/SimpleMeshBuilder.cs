@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class SimpleMeshBuilder
 {
+    
     public struct BuildTri
     {
         public int submesh;
@@ -72,6 +73,7 @@ public class SimpleMeshBuilder
         return addAtIndex;
     }
 
+    /// Returns the index of the added triangle
     public int pushTri(int ndxA, int ndxB, int ndxC, int submesh = 0)
     {
         int addTriIndex = _buildTris.Count;
@@ -89,6 +91,13 @@ public class SimpleMeshBuilder
         return addTriIndex;
     }
 
+    /// Returns the index of the first added triangle of the quad.
+    public int pushQuad(int ndxA, int ndxB, int ndxC, int ndxD, int submesh = 0)
+    {
+        pushTri(ndxA, ndxB, ndxC, submesh);
+        return pushTri(ndxC, ndxB, ndxD, submesh );
+    }
+
     public void Reset()
     {
         _buildTris.Clear();
@@ -96,7 +105,7 @@ public class SimpleMeshBuilder
         _maxSubmesh = 0;
     }
 
-    public Mesh FinalizeMesh(Mesh mesh, string meshName )
+    public Mesh FinalizeMesh(Mesh mesh, string meshName, bool recalcNormals = true )
     {
         mesh.name = meshName;
 
@@ -136,14 +145,14 @@ public class SimpleMeshBuilder
             int subndx = 0;
             int[] submeshTris = new int[triCountForSubmesh[i] * 3];
             
-            for (int i = 0; i < _buildTris.Count; i++)
+            for (int j = 0; j < _buildTris.Count; j++)
             {
-                if (_buildTris[i].submesh == i)
+                if (_buildTris[j].submesh == i)
                 {
-                    BuildTri tri = _buildTris[i];
-                    submeshTris[subndx * 3 + 0] = tri.c;
+                    BuildTri tri = _buildTris[j];
+                    submeshTris[subndx * 3 + 0] = tri.a;
                     submeshTris[subndx * 3 + 1] = tri.b;
-                    submeshTris[subndx * 3 + 2] = tri.a;
+                    submeshTris[subndx * 3 + 2] = tri.c;
 
                     subndx++;
                 }
@@ -152,7 +161,11 @@ public class SimpleMeshBuilder
             mesh.SetTriangles( submeshTris, i );
         }
 
-        mesh.RecalculateNormals();
+        if (recalcNormals)
+        {
+            mesh.RecalculateNormals();
+        }
+
         mesh.RecalculateTangents();
         mesh.RecalculateBounds();
         
