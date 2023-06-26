@@ -1,8 +1,9 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BasicExample : MonoBehaviour
+public class ExampleMeshes : MonoBehaviour
 {
     const float TAU = Mathf.PI * 2.0f;
     
@@ -12,6 +13,7 @@ public class BasicExample : MonoBehaviour
     public Material MaterialSecond;
     
     // For layout
+    private List<Transform> meshes = new();
     private Vector3 _layoutPos;
     
     void Start()
@@ -26,7 +28,14 @@ public class BasicExample : MonoBehaviour
         
         // More complicated spiral example
         GameObject objSpiral = BuildSpiralMesh(builder);
+        objSpiral.transform.rotation = Quaternion.AngleAxis( 50.0f, Vector3.right );
         LayoutAndLabel( objSpiral, "Spiral");
+        
+        // Example with Multiple Materials
+        GameObject objChecks = BuildMultiMtlMesh(builder);
+        objChecks.transform.rotation = Quaternion.AngleAxis( 20.0f, Vector3.right );
+        objChecks.transform.localScale = Vector3.one * 0.7f;
+        LayoutAndLabel( objChecks, "Multi-Material");
     }
 
     // ===[ Simple Example ]===========================================
@@ -35,21 +44,22 @@ public class BasicExample : MonoBehaviour
     GameObject BuildHelloMesh( SimpleMeshBuilder builder )
     {
         builder.Reset();
-        
+
+        float yy = 0.75f;
         int a = builder.pushVert(
-            new Vector3(1.0f, 0.0f, -1.0f),
+            new Vector3(2.1f, 0.0f, -2.1f + yy),
             Vector3.up,
             new Vector2(0.0f, 0.0f),
             new Color32(255, 10, 10, 255));
         
         int b = builder.pushVert(
-            new Vector3(-1.0f, 0.0f,  -1.0f),
+            new Vector3(-2.1f, 0.0f,  -2.1f + yy),
             Vector3.up,
             new Vector2(0.0f, 1.0f),
             new Color32(10, 10, 255, 255));
         
         int c = builder.pushVert(
-            new Vector3( 0.0f, 0.0f,  1.5f),
+            new Vector3( 0.0f, 0.0f,  1.5f + yy),
             Vector3.up,
             new Vector2(1.0f, 1.0f),
             new Color32(10, 255, 10, 255));
@@ -67,6 +77,8 @@ public class BasicExample : MonoBehaviour
         return objMesh1;
     }
 
+    // ===[ Spiral Example ]===========================================
+    // A more complicated example, this builds a spiral with end caps. 
     GameObject BuildSpiralMesh(SimpleMeshBuilder builder)
     {
         builder.Reset();
@@ -74,8 +86,6 @@ public class BasicExample : MonoBehaviour
         
         float height = 1.5f;
         float revolutions = 3.0f;
-        //float revolutions = 0.75f;
-        //float height = 0.5f;
         
         float seg = 0.02f;
         float innerRadius = 0.4f;
@@ -134,7 +144,6 @@ public class BasicExample : MonoBehaviour
         mf.mesh = builder.FinalizeMesh(mf.mesh, "Spiral");
         rndr.material = MaterialPlain;
         
-
         return objSpiral;
     }
     
@@ -149,7 +158,6 @@ public class BasicExample : MonoBehaviour
             float capT = (float)(capRing + 1) / (float)(capRings + 2);
             float capAng = capT * (Mathf.PI / 2.0f);
             
-            Debug.Log($" ring {capRing} CapT {capT} capAng {capAng * (180.0f/Mathf.PI)}");
             for (int i = 0; i < innerRings; i++)
             {
                 float t2 = (float) i / (float) innerRings;
@@ -210,20 +218,9 @@ public class BasicExample : MonoBehaviour
     void LayoutAndLabel(GameObject obj, string label)
     {
         obj.name = label;
-        
-        GameObject objLabel = new GameObject();
-        objLabel.name = label + " Label";
-        objLabel.transform.SetParent( obj.transform );
-        objLabel.transform.localPosition = Vector3.forward * -1.2f;
-        objLabel.transform.rotation = Quaternion.Euler( 90.0f, 0f, 0f );
-        TextMesh textMesh = objLabel.AddComponent<TextMesh>();
-        textMesh.text = label;
-        textMesh.fontSize = 48;
-        textMesh.characterSize = 0.1f;
-        textMesh.anchor = TextAnchor.UpperCenter;
 
         // Arrange the meshes in two rows
-        float layoutSz = 3.0f;
+        float layoutSz = 4.0f;
         obj.transform.position = _layoutPos * layoutSz;
         if (_layoutPos.x < 2.5f)
         {
@@ -235,6 +232,77 @@ public class BasicExample : MonoBehaviour
             _layoutPos.z = _layoutPos.z - 2.0f;
         }
 
+        // Put a label below the objects
+        GameObject objLabel = new GameObject();
+        objLabel.name = label + " Label";
+        objLabel.transform.position = obj.transform.position + Vector3.forward * -2.5f;
+        objLabel.transform.rotation = Quaternion.Euler(90.0f, 0f, 0f);
+        TextMesh textMesh = objLabel.AddComponent<TextMesh>();
+        textMesh.text = label;
+        textMesh.fontSize = 48;
+        textMesh.characterSize = 0.1f;
+        textMesh.anchor = TextAnchor.UpperCenter;
 
+        // Add to the list of meshes so we can rotate them
+        meshes.Add(obj.transform);
+    }
+    
+    // ===[ MultiMaterial Example ]===========================================
+    //  An checkerboard with multiple submeshes with different materials 
+    GameObject BuildMultiMtlMesh(SimpleMeshBuilder builder)
+    {
+        builder.Reset();
+        
+        int checks = 6;
+        float ch = (float) checks / 2.0f;
+        for (int j = 0; j < checks + 1; j++)
+        {
+            for (int i = 0; i < checks + 1; i++)
+            {
+                builder.pushVert(new Vector3((float) i - ch, 0.0f, - ((float) j - ch) ),
+                    Vector3.up,
+                    new Vector2((float) i / (float) checks, (float) i / (float) checks)
+                );
+            }
+        }
+
+        for (int j = 0; j < checks; j++)
+        {
+            for (int i = 0; i < checks; i++)
+            {
+                int ndx = (j * (checks + 1)) + i;
+
+                // Choose which submesh based on which check were on
+                int submesh = 0; // first material
+                if ((i & 1) == (j & 1))
+                {
+                    submesh = 1; // second material
+                }
+                builder.pushQuad( ndx, ndx+1,
+                        ndx + checks+1, ndx + checks+2, 
+                        submesh );
+            }
+        }
+        
+        GameObject objChecks = new GameObject();
+        MeshRenderer rndr = objChecks.AddComponent<MeshRenderer>();
+        MeshFilter mf = objChecks.AddComponent<MeshFilter>();
+        
+        mf.mesh = builder.FinalizeMesh(mf.mesh, "Checks");
+        Material[] mtls = new Material[2];
+        mtls[0] = MaterialPlain;
+        mtls[1] = MaterialSecond;
+        rndr.materials = mtls;
+        
+        return objChecks;
+    }
+
+    private void Update()
+    {
+        Quaternion rot = Quaternion.AngleAxis(30.0f * Time.deltaTime, Vector3.up);
+        foreach (Transform t in meshes)
+        {
+            t.rotation = t.rotation * rot;
+        }
     }
 }
