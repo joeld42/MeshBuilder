@@ -105,6 +105,13 @@ public class SimpleMeshBuilder
         _maxSubmesh = 0;
     }
 
+    ///  This assembles and assigns the mesh data.
+    /// 
+    ///  Pass in the mesh you want to assign to, since if you're reusing a mesh this can be a lot faster
+    /// than creating a new one. The same mesh is returned just for convenience.
+    /// If recalcNormals is true (default) then Unity's `CalculateNormals` is called and
+    /// the mesh normals are replaced. CalculateTangents and CalculateBounds are always called,
+    /// you might want to modify this behavior in more complicated situations.
     public Mesh FinalizeMesh(Mesh mesh, string meshName, bool recalcNormals = true )
     {
         mesh.name = meshName;
