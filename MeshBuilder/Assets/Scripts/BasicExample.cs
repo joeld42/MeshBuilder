@@ -4,7 +4,8 @@ using UnityEngine;
 
 public class BasicExample : MonoBehaviour
 {
-
+    const float TAU = Mathf.PI * 2.0f;
+    
     [Header("Materials")] 
     public Material MaterialVertColor;
     public Material MaterialPlain;
@@ -70,26 +71,31 @@ public class BasicExample : MonoBehaviour
     {
         builder.Reset();
 
-        float Tau = Mathf.PI * 2.0f;
+        
         float height = 1.5f;
         float revolutions = 3.0f;
+        //float revolutions = 0.75f;
+        //float height = 0.5f;
+        
         float seg = 0.02f;
         float innerRadius = 0.4f;
         int innerRings = 16;
         int lastRowIndex = -1;
+        Quaternion spiralRot = Quaternion.identity;
+        Vector3 center = Vector3.zero;
         for (float t = 0.0f; t <= revolutions; t += seg)
         {
             float y = Mathf.Lerp(-height, height, t / revolutions);
             
-            Quaternion spiralRot = Quaternion.AngleAxis( t * 360.0f, Vector3.up );
-            Vector3 center = spiralRot * new Vector3( 1.0f, y, 0.0f );
+            spiralRot = Quaternion.AngleAxis( t * 360.0f, Vector3.up );
+            center = spiralRot * new Vector3( 1.0f, y, 0.0f );
                 
             // Inner radius
             int ringStartIndex = builder.VertexCount;
             for (int i = 0; i < innerRings; i++)
             {
                 float t2 = (float) i / (float) innerRings;
-                float a2 = t2 * Tau;
+                float a2 = t2 * TAU;
                 Vector3 dir = new Vector3(Mathf.Cos(a2), Mathf.Sin(a2), 0.0f ) * innerRadius;
                 dir = spiralRot * dir;
 
@@ -112,6 +118,14 @@ public class BasicExample : MonoBehaviour
             lastRowIndex = ringStartIndex;
         }
         
+        
+        // Make the end caps
+        Quaternion spiralRot2 = Quaternion.AngleAxis( 0 * 360.0f, Vector3.up );
+        Vector3 center2 = spiralRot2 * new Vector3( 1.0f, -height, 0.0f );
+        MakeEndCap( builder, innerRings, innerRadius, center2, Quaternion.identity, 0, true );
+        
+        MakeEndCap( builder, innerRings, innerRadius, center, spiralRot, lastRowIndex, false );
+        
         // Create a new GameObject and assign the mesh
         GameObject objSpiral = new GameObject();
         MeshRenderer rndr = objSpiral.AddComponent<MeshRenderer>();
@@ -119,8 +133,76 @@ public class BasicExample : MonoBehaviour
         
         mf.mesh = builder.FinalizeMesh(mf.mesh, "Spiral");
         rndr.material = MaterialPlain;
+        
 
         return objSpiral;
+    }
+    
+    // End caps
+    void MakeEndCap( SimpleMeshBuilder builder, int innerRings, float innerRadius, Vector3 center, Quaternion rot, int prevRowIndex, bool flipped )
+    {
+        Vector3 fwd = flipped ? Vector3.forward : Vector3.back;
+        int capRings = 3;
+        for (int capRing = 0; capRing <= capRings; capRing++)
+        {
+            int rowStartIndex = builder.VertexCount;
+            float capT = (float)(capRing + 1) / (float)(capRings + 2);
+            float capAng = capT * (Mathf.PI / 2.0f);
+            
+            Debug.Log($" ring {capRing} CapT {capT} capAng {capAng * (180.0f/Mathf.PI)}");
+            for (int i = 0; i < innerRings; i++)
+            {
+                float t2 = (float) i / (float) innerRings;
+                float a2 = t2 * TAU;
+                Vector3 dir = new Vector3(Mathf.Cos(a2), Mathf.Sin(a2), 0.0f);
+                
+                Vector3 capDir = rot * (Mathf.Sin(capAng) * fwd) +
+                                 rot * (Mathf.Cos(capAng) * dir);
+
+                Vector3 capPnt = capDir * innerRadius;
+
+                builder.pushVert(center + capPnt, Vector3.up, new Vector2(0.5f, 0.5f) );
+            }
+            
+            for (int i = 0; i < innerRings; i++)
+            {
+                int A = prevRowIndex + (i + 1) % innerRings;
+                int B = prevRowIndex + i;
+                int C = rowStartIndex + (i + 1) % innerRings;
+                int D = rowStartIndex + i;
+                if (flipped)
+                {
+                    builder.pushQuad(C, D, A, B );
+                }
+                else
+                {
+                    builder.pushQuad(A, B, C, D);
+                }
+            }
+
+            prevRowIndex = rowStartIndex;
+        }
+        
+        // Close the center
+        Vector3 centerPnt = fwd * innerRadius;
+        centerPnt = rot * centerPnt;
+        int centerNdx = builder.pushVert(center + centerPnt, Vector3.up, new Vector2(0.5f, 0.5f) );
+        
+        for (int i = 0; i < innerRings; i++)
+        {
+            
+            int A = prevRowIndex + (i + 1) % innerRings;
+            int B = prevRowIndex + i;
+            int C = centerNdx;
+            if (flipped)
+            {
+                builder.pushTri(C, B, A );
+            }
+            else
+            {
+                builder.pushTri(A, B, C );
+            }
+        }
     }
 
 
